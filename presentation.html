@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang='ko'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>좋은 아키텍처 배우기: Effect.ts로 다시 보는 설계</title>
+  <link rel='preconnect' href='https://api.fontshare.com'>
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link href='https://api.fontshare.com/v2/css?f[]=clash-display@400,600,700&f[]=satoshi@400,500,700&display=swap' rel='stylesheet'>
+  <link href='https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap' rel='stylesheet'>
+  <style>
+    html, body { height: 100%; overflow-x: hidden; }
+    html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-height: 100%;
+      overflow: hidden;
+      padding: var(--slide-padding);
+    }
+    :root {
+      --title-size: clamp(2.2rem, 6vw, 5rem);
+      --h2-size: clamp(1.6rem, 4vw, 3.2rem);
+      --h3-size: clamp(1.1rem, 2.4vw, 1.9rem);
+      --body-size: clamp(0.9rem, 1.55vw, 1.25rem);
+      --small-size: clamp(0.72rem, 1vw, 0.92rem);
+      --code-size: clamp(0.78rem, 1.35vw, 1rem);
+
+      --slide-padding: clamp(1.5rem, 5vw, 4.5rem);
+      --content-gap: clamp(1rem, 2.8vw, 2.4rem);
+      --element-gap: clamp(0.5rem, 1.2vw, 1rem);
+
+      --bg-midnight: #070b1c;
+      --bg-navy: #0a1029;
+      --cyan: #00f0ff;
+      --magenta: #ff2a8c;
+      --violet: #7b61ff;
+      --lime: #a3ff12;
+      --text-primary: #f0f4ff;
+      --text-secondary: #9fb1d3;
+      --text-muted: #5d7195;
+    }
+    .card, .container, .content-box {
+      max-width: min(92vw, 1100px);
+      max-height: min(82vh, 720px);
+    }
+    .feature-list, .bullet-list { gap: clamp(0.35rem, 0.9vh, 0.75rem); }
+    .feature-list li, .bullet-list li { font-size: var(--body-size); line-height: 1.4; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: clamp(0.5rem, 1.4vw, 1.1rem); }
+    img, .image-container { max-width: 100%; max-height: min(48vh, 380px); object-fit: contain; }
+
+    @media (max-height: 700px) {
+      :root { --slide-padding: clamp(1rem, 3.5vw, 2.5rem); --content-gap: clamp(0.7rem, 1.8vw, 1.4rem); --title-size: clamp(1.7rem, 5vw, 3rem); --h2-size: clamp(1.3rem, 3.4vw, 2.2rem); }
+    }
+    @media (max-height: 600px) {
+      :root { --slide-padding: clamp(0.8rem, 2.8vw, 1.8rem); --content-gap: clamp(0.5rem, 1.2vw, 1rem); --title-size: clamp(1.4rem, 4.2vw, 2.4rem); --body-size: clamp(0.78rem, 1.2vw, 1.05rem); --code-size: clamp(0.66rem, 1.1vw, 0.88rem); }
+      .nav-hint, .keyboard-hint, .decorative { display: none; }
+    }
+    @media (max-height: 500px) {
+      :root { --slide-padding: clamp(0.6rem, 2.2vw, 1.2rem); --title-size: clamp(1.15rem, 3.6vw, 1.8rem); --h2-size: clamp(1rem, 2.6vw, 1.35rem); --body-size: clamp(0.7rem, 1.05vw, 0.92rem); --code-size: clamp(0.62rem, 1vw, 0.82rem); }
+    }
+    @media (max-width: 600px) {
+      :root { --title-size: clamp(1.8rem, 8vw, 2.8rem); }
+      .grid { grid-template-columns: 1fr; }
+      pre { font-size: clamp(0.65rem, 2.8vw, 0.88rem) !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+      html { scroll-behavior: auto; }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(ellipse at 20% 15%, rgba(0, 240, 255, 0.10) 0%, transparent 42%),
+        radial-gradient(ellipse at 80% 80%, rgba(255, 42, 140, 0.10) 0%, transparent 42%),
+        linear-gradient(180deg, var(--bg-midnight) 0%, var(--bg-navy) 100%);
+      color: var(--text-primary);
+      font-family: 'Satoshi', sans-serif;
+      line-height: 1.5;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 240, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.035) 1px, transparent 1px);
+      background-size: clamp(40px, 6vw, 80px) clamp(40px, 6vw, 80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    main { position: relative; z-index: 1; }
+
+    h1, h2, h3, h4 { font-family: 'Clash Display', sans-serif; font-weight: 600; line-height: 1.1; margin: 0; }
+    h1 { font-size: var(--title-size); }
+    h2 { font-size: var(--h2-size); }
+    h3 { font-size: var(--h3-size); }
+    p { margin: 0; }
+
+    .glow-cyan { text-shadow: 0 0 clamp(10px, 1.5vw, 24px) rgba(0, 240, 255, 0.55); }
+    .glow-magenta { text-shadow: 0 0 clamp(10px, 1.5vw, 24px) rgba(255, 42, 140, 0.55); }
+    .accent-cyan { color: var(--cyan); }
+    .accent-magenta { color: var(--magenta); }
+    .accent-violet { color: var(--violet); }
+    .accent-lime { color: var(--lime); }
+    .muted { color: var(--text-muted); }
+
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease, transform 0.5s ease; }
+    .reveal.active { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.06s; }
+    .reveal-delay-2 { transition-delay: 0.12s; }
+    .reveal-delay-3 { transition-delay: 0.18s; }
+    .reveal-delay-4 { transition-delay: 0.24s; }
+    .reveal-delay-5 { transition-delay: 0.30s; }
+    .reveal-delay-6 { transition-delay: 0.36s; }
+
+    .slide-number {
+      position: absolute;
+      top: clamp(1rem, 2.5vw, 2rem);
+      left: clamp(1rem, 2.5vw, 2rem);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: var(--small-size);
+      color: var(--text-muted);
+      z-index: 2;
+    }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: var(--small-size);
+      color: var(--magenta);
+      margin-bottom: var(--element-gap);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    ul.bullet-list, ul.feature-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+    ul.bullet-list li { position: relative; padding-left: 1.3em; color: var(--text-secondary); }
+    ul.bullet-list li::before { content: '›'; position: absolute; left: 0; color: var(--cyan); font-weight: 700; }
+    ul.bullet-list li strong { color: var(--text-primary); font-weight: 600; }
+
+    .two-col { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(1rem, 3vw, 2.5rem); align-items: center; }
+    @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+    pre {
+      background: rgba(5, 8, 20, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.22);
+      border-radius: 12px;
+      padding: clamp(0.7rem, 1.6vw, 1.2rem);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: var(--code-size);
+      line-height: 1.55;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.08);
+      margin: 0;
+    }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.92em; }
+    .code-comment { color: #5d7195; }
+    .code-keyword { color: #ff2a8c; }
+    .code-type { color: #00f0ff; }
+    .code-string { color: #a5ff90; }
+    .code-func { color: #7b61ff; }
+    .code-plain { color: #e8eeff; }
+    .code-num { color: #ffaa5e; }
+
+    .progress-bar { position: fixed; bottom: 0; left: 0; height: 3px; width: 100%; background: rgba(0, 240, 255, 0.12); z-index: 10; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--magenta)); transition: width 0.3s ease; box-shadow: 0 0 12px var(--cyan); }
+    .slide-counter { position: fixed; bottom: clamp(0.6rem, 1.5vw, 1rem); right: clamp(0.8rem, 2vw, 1.5rem); font-family: 'JetBrains Mono', monospace; font-size: var(--small-size); color: var(--text-muted); z-index: 10; }
+    .nav-hint { position: fixed; bottom: clamp(0.6rem, 1.5vw, 1rem); left: 50%; transform: translateX(-50%); font-family: 'JetBrains Mono', monospace; font-size: var(--small-size); color: var(--text-muted); z-index: 10; opacity: 0.7; }
+    @media (max-width: 600px) { .nav-hint { display: none; } }
+
+    .title-slide, .center-slide { text-align: center; }
+    .title-slide h1 { margin-bottom: var(--element-gap); }
+    .title-slide .subtitle { font-size: var(--h2-size); color: var(--text-secondary); margin-bottom: var(--content-gap); }
+    .title-slide .tagline { font-size: var(--body-size); color: var(--text-muted); max-width: min(80vw, 720px); margin: 0 auto; line-height: 1.6; }
+
+    .big-phrase {
+      font-size: clamp(1.3rem, 3vw, 2.2rem);
+      color: var(--text-secondary);
+      line-height: 1.35;
+      max-width: min(88vw, 860px);
+    }
+    .big-phrase strong { color: var(--text-primary); }
+
+    .keyword-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+      gap: clamp(0.5rem, 1.2vw, 0.9rem);
+    }
+    .keyword-card {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 10px;
+      padding: clamp(0.6rem, 1.4vw, 1rem);
+      text-align: center;
+    }
+    .keyword-card p { font-size: var(--body-size); color: var(--text-primary); }
+    .keyword-card span { display: block; font-size: var(--small-size); color: var(--text-muted); margin-top: 0.2em; }
+    .keyword-card .symbol {
+      display: block;
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(1.5rem, 2.8vw, 2.2rem);
+      line-height: 1;
+      margin-bottom: 0.2em;
+      color: var(--cyan);
+    }
+    .scenario-card {
+      background: rgba(255, 42, 140, 0.08);
+      border-color: rgba(255, 42, 140, 0.25);
+    }
+    .scenario-card .symbol {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--magenta);
+      font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+    }
+    .effect-card { background: rgba(0, 240, 255, 0.07); border-color: rgba(0, 240, 255, 0.2); }
+    .effect-card.cyan .symbol { color: var(--cyan); }
+    .effect-card.magenta { background: rgba(255, 42, 140, 0.07); border-color: rgba(255, 42, 140, 0.2); }
+    .effect-card.magenta .symbol { color: var(--magenta); }
+    .effect-card.violet { background: rgba(123, 97, 255, 0.09); border-color: rgba(123, 97, 255, 0.25); }
+    .effect-card.violet .symbol { color: var(--violet); }
+    .effect-card.lime { background: rgba(163, 255, 18, 0.06); border-color: rgba(163, 255, 18, 0.2); }
+    .effect-card.lime .symbol { color: var(--lime); }
+
+    .point-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: clamp(0.4rem, 1vh, 0.7rem); }
+    .point-list li { font-size: var(--body-size); color: var(--text-secondary); display: flex; align-items: baseline; gap: 0.6em; }
+    .point-list li::before { content: '//'; color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+
+    .statement {
+      font-size: var(--h3-size);
+      color: var(--text-primary);
+      line-height: 1.35;
+      border-left: 3px solid var(--magenta);
+      padding-left: clamp(0.9rem, 2vw, 1.4rem);
+    }
+
+    .type-pill {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(123, 97, 255, 0.12);
+      border: 1px solid rgba(123, 97, 255, 0.35);
+      color: var(--violet);
+      padding: 0.35em 0.8em;
+      border-radius: 8px;
+      font-size: var(--code-size);
+    }
+
+    .number-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+      gap: clamp(0.6rem, 1.5vw, 1rem);
+    }
+    .number-item {
+      text-align: center;
+      padding: clamp(0.7rem, 1.5vw, 1.1rem);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .number-item .num { display: block; font-family: 'Clash Display'; font-size: clamp(1.8rem, 4vw, 3rem); color: var(--cyan); line-height: 1; margin-bottom: 0.2em; }
+    .number-item p { font-size: var(--body-size); color: var(--text-secondary); }
+
+    .vs-block { display: grid; grid-template-columns: 1fr auto 1fr; gap: clamp(0.8rem, 2vw, 1.5rem); align-items: center; }
+    .vs-block .vs { font-family: 'Clash Display'; color: var(--magenta); font-size: var(--h2-size); }
+    @media (max-width: 800px) { .vs-block { grid-template-columns: 1fr; } .vs-block .vs { text-align: center; } }
+  </style>
+</head>
+<body>
+  <canvas id='particles'></canvas>
+  <main id='presentation'>
+
+    <!-- 1 -->
+    <section class='slide title-slide'>
+      <div class='slide-content'>
+        <div class='reveal'><span style='font-family: JetBrains Mono; color: var(--cyan); font-size: var(--small-size);'>INTRO TO EFFECT.TS</span></div>
+        <h1 class='reveal reveal-delay-1 glow-cyan'>좋은 아키텍처 배우기</h1>
+        <div class='reveal reveal-delay-2 subtitle'>Effect.ts로 다시 보는 설계</div>
+        <div class='reveal reveal-delay-3 tagline'>Effect.ts가 보여주는 좋은 아키텍처의 렌즈</div>
+      </div>
+      <div class='slide-number'>01</div>
+    </section>
+
+    <!-- 2 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>02</div>
+        <div class='section-label reveal'>This talk is</div>
+        <h2 class='reveal reveal-delay-1 accent-cyan'>Good Architecture Lens</h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          Effect.ts API 튜토리얼이 아니라,<br>
+          좋은 아키텍처가 <strong>무엇을 분리</strong>해야 하는지,<br>
+          Effect.ts가 그 분리를 어떻게 드러내는지 보여주는지 살펴본다.
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>Best practice가 풀려던 문제 환기</li>
+            <li>Effect, Runtime, Generator 개념</li>
+            <li>Code와 Runtime의 분리</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>03</div>
+        <div class='section-label reveal'>Good Architecture</div>
+        <h2 class='reveal reveal-delay-1'>Architecture ≠ <span class='accent-magenta'>Folder Structure</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card'><p>변경에 강함</p></div>
+            <div class='keyword-card'><p>책임 분리</p></div>
+            <div class='keyword-card'><p>느슨한 결합</p></div>
+            <div class='keyword-card'><p>외부 환경 독립</p></div>
+            <div class='keyword-card'><p>실패 명시</p></div>
+            <div class='keyword-card'><p>테스트 용이</p></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap);'>
+          복잡성을 없애는 것이 아니라,<br>적절한 위치로 옮기는 일.
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>04</div>
+        <div class='section-label reveal'>Separation</div>
+        <h2 class='reveal reveal-delay-1'>5가지 분리</h2>
+        <div class='number-row' style='margin-top: var(--content-gap);'>
+          <div class='reveal reveal-delay-2 number-item'><span class='num'>01</span><p>무엇을 할 것인가</p></div>
+          <div class='reveal reveal-delay-2 number-item'><span class='num'>02</span><p>어떻게 실행할 것인가</p></div>
+          <div class='reveal reveal-delay-3 number-item'><span class='num'>03</span><p>어떤 구현체를 쓸 것인가</p></div>
+          <div class='reveal reveal-delay-3 number-item'><span class='num'>04</span><p>어떤 실패가 가능한가</p></div>
+          <div class='reveal reveal-delay-4 number-item'><span class='num'>05</span><p>시간을 누가 제어할 것인가</p></div>
+        </div>
+        <div class='reveal reveal-delay-5' style='margin-top: var(--content-gap); color: var(--text-muted); font-size: var(--small-size);'>
+          → Success · Runtime · Requirements · Error · Generator/Fiber
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>05</div>
+        <div class='section-label reveal'>Testability</div>
+        <h2 class='reveal reveal-delay-1'>Testability = <span class='accent-cyan'>Signal</span></h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          테스트 가능성은 유일한 기준은 아니지만,<br>
+          코드가 <strong>외부 세계와 얼마나 분리</strong>되어 있는지 보여주는 신호다.
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>숨겨진 의존성</li>
+            <li>외부 환경 결합</li>
+            <li>실패 재현 어려움</li>
+            <li>시간 제어 어려움</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>06</div>
+        <div class='section-label reveal'>Testability</div>
+        <h2 class='reveal reveal-delay-1'>원하는 세계를 <span class='accent-magenta'>시뮬레이션</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card scenario-card'><span class='symbol'>500</span><p>API 500</p></div>
+            <div class='keyword-card scenario-card'><span class='symbol'>timeout→ok</span><p>timeout → 성공</p></div>
+            <div class='keyword-card scenario-card'><span class='symbol'>flag off</span><p>feature flag off</p></div>
+            <div class='keyword-card scenario-card'><span class='symbol'>403</span><p>권한 없음</p></div>
+            <div class='keyword-card scenario-card'><span class='symbol'>storage fail</span><p>localStorage 실패</p></div>
+            <div class='keyword-card scenario-card'><span class='symbol'>+5s</span><p>5초 경과</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>07</div>
+        <div class='section-label reveal'>Pure Logic</div>
+        <h2 class='reveal reveal-delay-1'>순수 로직은 <span class='accent-cyan'>쉽다</span></h2>
+        <div class='two-col' style='margin-top: var(--content-gap);'>
+          <div class='reveal reveal-delay-2'>
+<pre><span class='code-keyword'>function</span> <span class='code-func'>reducer</span><span class='code-plain'>(state, action) {</span>
+  <span class='code-keyword'>switch</span> <span class='code-plain'>(action.type) {</span>
+    <span class='code-keyword'>case</span> <span class='code-string'>"success"</span><span class='code-plain'>:</span>
+      <span class='code-keyword'>return</span> <span class='code-plain'>{ ...state, status: </span><span class='code-string'>"success"</span> <span class='code-plain'>};</span>
+    <span class='code-keyword'>case</span> <span class='code-string'>"failure"</span><span class='code-plain'>:</span>
+      <span class='code-keyword'>return</span> <span class='code-plain'>{ ...state, status: </span><span class='code-string'>"error"</span> <span class='code-plain'>};</span>
+  <span class='code-plain'>}</span>
+<span class='code-plain'>}</span></pre>
+          </div>
+          <div class='reveal reveal-delay-3'>
+            <ul class='point-list'>
+              <li>같은 입력 → 같은 출력</li>
+              <li>외부 환경 불필요</li>
+              <li>시간 없음</li>
+              <li>실패 만들기 쉬움</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>08</div>
+        <div class='section-label reveal'>Effects</div>
+        <h2 class='reveal reveal-delay-1'>어려움은 <span class='accent-magenta'>순수 로직 밖</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card effect-card cyan'><span class='symbol'>⇄</span><p>API 호출</p></div>
+            <div class='keyword-card effect-card magenta'><span class='symbol'>✦</span><p>인증 · 권한</p></div>
+            <div class='keyword-card effect-card violet'><span class='symbol'>◆</span><p>feature flag</p></div>
+            <div class='keyword-card effect-card cyan'><span class='symbol'>▦</span><p>localStorage</p></div>
+            <div class='keyword-card effect-card lime'><span class='symbol'>◈</span><p>analytics</p></div>
+            <div class='keyword-card effect-card magenta'><span class='symbol'>↻</span><p>timeout · retry</p></div>
+            <div class='keyword-card effect-card violet'><span class='symbol'>⊗</span><p>cancellation</p></div>
+            <div class='keyword-card effect-card cyan'><span class='symbol'>≋</span><p>streaming · cleanup</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>09</div>
+        <div class='section-label reveal'>Effect</div>
+        <h2 class='reveal reveal-delay-1'>Effect = <span class='accent-cyan'>세상과의 상호작용</span></h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          순수 계산 바깥의 세계와 상호작용하는 모든 작업.
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <p style='font-family: JetBrains Mono; color: var(--cyan); font-size: var(--body-size);'>
+            fetch · localStorage · console.log · setTimeout · AbortController · stream · analytics.track
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>10</div>
+        <div class='reveal'><span style='font-family: JetBrains Mono; color: var(--magenta); font-size: var(--small-size);'>THE REAL PROBLEM</span></div>
+        <h2 class='reveal reveal-delay-1 glow-magenta' style='margin-top: var(--element-gap);'>Effect 관리</h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0;'>
+          누가 dispatch하고, 누가 API를 호출하고,<br>
+          실패와 retry와 timeout은 어디서 다루는가?
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>11</div>
+        <div class='section-label reveal'>Already Doing</div>
+        <h2 class='reveal reveal-delay-1'>이미 하고 있던 것들</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card'><p>Interface</p></div>
+            <div class='keyword-card'><p>Service</p></div>
+            <div class='keyword-card'><p>React Context</p></div>
+            <div class='keyword-card'><p>BFF contract</p></div>
+            <div class='keyword-card'><p>Controller context</p></div>
+            <div class='keyword-card'><p>Global error handler</p></div>
+            <div class='keyword-card'><p>Mock</p></div>
+            <div class='keyword-card'><p>Composition root</p></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap);'>
+          모두 코드가 외부 세계에 너무 빨리 붙지 않게 하려는 시도.
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>12</div>
+        <div class='section-label reveal'>Limits</div>
+        <h2 class='reveal reveal-delay-1'>여전히 <span class='accent-magenta'>부족</span>하다</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>dependency가 타입에 드러나지 않음</li>
+            <li>error가 Promise 타입에 없음</li>
+            <li>provider 누락은 런타임에 발견</li>
+            <li>timeout/retry/cleanup 정책 흩어짐</li>
+            <li>원칙이 컨벤션에 의존</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>13</div>
+        <div class='reveal'><span style='font-family: JetBrains Mono; color: var(--cyan); font-size: var(--small-size);'>EFFECT.TS</span></div>
+        <h2 class='reveal reveal-delay-1 glow-cyan' style='margin-top: var(--element-gap);'>더 높은 수준의 모델</h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0;'>
+          Effect.ts는 best practice를 <strong>대체</strong>하려는 것이 아니라,<br>
+          그것들이 풀려던 문제를 <strong>더 명시적</strong>으로 표현해 보여준다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>14</div>
+        <div class='section-label reveal'>Core Type</div>
+        <h2 class='reveal reveal-delay-1' style='margin-bottom: var(--content-gap);'>Effect</h2>
+        <div class='reveal reveal-delay-2'>
+          <span class='type-pill' style='font-size: clamp(1.1rem, 2.8vw, 1.8rem); padding: 0.5em 1em;'>Effect.Effect&lt;Success, Error, Requirements&gt;</span>
+        </div>
+        <div class='number-row' style='margin-top: var(--content-gap); max-width: 800px; margin-left: auto; margin-right: auto;'>
+          <div class='reveal reveal-delay-3 number-item'><span class='num'>S</span><p>성공 시 반환</p></div>
+          <div class='reveal reveal-delay-4 number-item'><span class='num'>E</span><p>가능한 실패</p></div>
+          <div class='reveal reveal-delay-5 number-item'><span class='num'>R</span><p>필요한 capability</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>15</div>
+        <div class='section-label reveal'>Normal Code</div>
+        <h2 class='reveal reveal-delay-1'>호출하면 <span class='accent-magenta'>즉시 실행</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap); max-width: 620px;'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>user = </span><span class='code-keyword'>await</span> <span class='code-func'>fetchUser</span><span class='code-plain'>();</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>네트워크 요청 즉시 발생</li>
+            <li>throw/reject</li>
+            <li>외부 세계와 직접 연결</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>16</div>
+        <div class='section-label reveal'>Effect Value</div>
+        <h2 class='reveal reveal-delay-1'>Effect는 <span class='accent-cyan'>프로그램 값</span>을 먼저 만든다</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>loadUser = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>http = </span><span class='code-keyword'>yield*</span> <span class='code-type'>HttpClient</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>user = </span><span class='code-keyword'>yield*</span> <span class='code-plain'>http.</span><span class='code-func'>getUser</span><span class='code-plain'>();</span>
+  <span class='code-keyword'>return</span> <span class='code-plain'>user;</span>
+<span class='code-plain'>});</span>
+
+<span class='code-comment'>// 아직 실행되지 않음</span>
+<span class='code-comment'>// Effect&lt;User, UserError, HttpClient&gt;</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>17</div>
+        <div class='section-label reveal'>Effect Structure</div>
+        <h2 class='reveal reveal-delay-1'>Effect = <span class='accent-cyan'>프로그램의 VDOM</span></h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          React의 JSX는 <span class='accent-cyan'>VDOM 트리</span>를 만든다.<br>
+          Effect.gen은 <span class='accent-cyan'>Effect 트리</span>를 만든다.<br>
+          둘 다 즉시 실행되지 않는다.
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>program = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>Effect.</span><span class='code-func'>sync</span><span class='code-plain'>(() =&gt; console.</span><span class='code-func'>log</span><span class='code-plain'>(</span><span class='code-string'>"!"</span><span class='code-plain'>));</span>
+  <span class='code-keyword'>return</span> <span class='code-num'>1</span><span class='code-plain'>;</span>
+<span class='code-plain'>});</span>
+
+<span class='code-comment'>// program: Effect&lt;number, never, never&gt;</span>
+<span class='code-comment'>// 아직 console.log는 실행되지 않음</span></pre>
+        </div>
+        <div class='reveal reveal-delay-4' style='margin-top: var(--content-gap); font-family: JetBrains Mono; color: var(--text-secondary); font-size: var(--body-size);'>
+          JSX → VDOM → commit ··· Effect value → run
+        </div>
+      </div>
+    </section>
+
+    <!-- 18 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>18</div>
+        <div class='section-label reveal'>Why Value</div>
+        <h2 class='reveal reveal-delay-1'>Effect가 값이어서 <span class='accent-cyan'>가능</span>해지는 것</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card'><p>실행 미루기</p></div>
+            <div class='keyword-card'><p>조합하기</p></div>
+            <div class='keyword-card'><p>타입 검사</p></div>
+            <div class='keyword-card'><p>환경 선택</p></div>
+            <div class='keyword-card'><p>테스트 환경 주입</p></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap);'>
+          테스트 가능하다 = 같은 프로그램을 다른 runtime에서 실행할 수 있다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 19 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>19</div>
+        <div class='section-label reveal'>Coupling</div>
+        <h2 class='reveal reveal-delay-1'>환경에 <span class='accent-magenta'>바로 묶인</span> 코드</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>async function</span> <span class='code-func'>submit</span><span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>res = </span><span class='code-keyword'>await</span> <span class='code-func'>fetch</span><span class='code-plain'>(</span><span class='code-string">"/api/submit"</span><span class='code-plain'>);</span>
+  <span class='code-plain'>localStorage.</span><span class='code-func'>setItem</span><span class='code-plain'>(</span><span class='code-string'>"last"</span><span class='code-plain'>, Date.</span><span class='code-func'>now</span><span class='code-plain'>().</span><span class='code-func'>toString</span><span class='code-plain'>());</span>
+  <span class='code-plain'>console.</span><span class='code-func'>log</span><span class='code-plain'>(</span><span class='code-string'>"submitted"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>return</span> <span class='code-plain'>res.</span><span class='code-func'>json</span><span class='code-plain'>();</span>
+<span class='code-plain'>}</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-muted); font-size: var(--small-size);'>
+          fetch · localStorage · console · Date · browser 모두가 이미 하드코딩되어 있다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 20 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>20</div>
+        <div class='section-label reveal'>Capability</div>
+        <h2 class='reveal reveal-delay-1'>Capability <span class='accent-cyan'>요구</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>submitProgram = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>http = </span><span class='code-keyword'>yield*</span> <span class='code-type'>HttpClient</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>storage = </span><span class='code-keyword'>yield*</span> <span class='code-type'>Storage</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>logger = </span><span class='code-keyword'>yield*</span> <span class='code-type'>Logger</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>clock = </span><span class='code-keyword'>yield*</span> <span class='code-type'>Clock</span><span class='code-plain'>;</span>
+
+  <span class='code-keyword'>const</span> <span class='code-plain'>res = </span><span class='code-keyword'>yield*</span> <span class='code-plain'>http.</span><span class='code-func'>post</span><span class='code-plain'>(</span><span class='code-string">"/api/submit"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>now = </span><span class='code-keyword'>yield*</span> <span class='code-plain'>clock.</span><span class='code-plain'>currentTimeMillis;</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>storage.</span><span class='code-func'>set</span><span class='code-plain'>(</span><span class='code-string'>"last"</span><span class='code-plain'>, String(now));</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>logger.</span><span class='code-func'>info</span><span class='code-plain'>(</span><span class='code-string'>"ok"</span><span class='code-plain'>);</span>
+
+  <span class='code-keyword'>return</span> <span class='code-plain'>res;</span>
+<span class='code-plain'>});</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); text-align: center;'>
+          <span class='type-pill'>Effect&lt;SubmitResult, SubmitError, HttpClient | Storage | Logger | Clock&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 21 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>21</div>
+        <div class='section-label reveal'>Runtime</div>
+        <h2 class='reveal reveal-delay-1'>실행 시점에 <span class='accent-cyan'>runtime 선택</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid' style='max-width: 900px; margin: 0 auto;'>
+            <div class='keyword-card'><p>Production</p><span>BrowserRuntime</span></div>
+            <div class='keyword-card'><p>Test</p><span>TestRuntime</span></div>
+            <div class='keyword-card'><p>Node</p><span>NodeRuntime</span></div>
+            <div class='keyword-card'><p>Bun</p><span>BunRuntime</span></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>runnable = program.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(BrowserRuntime));</span>
+
+<span class='code-comment'>// 같은 program을 다른 runtime에서 실행</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(program.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(TestRuntime)));</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(program.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(NodeRuntime)));</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(program.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(BunRuntime)));</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 22 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>22</div>
+        <div class='section-label reveal'>@effect/platform</div>
+        <h2 class='reveal reveal-delay-1'>Native API에 <span class='accent-cyan'>직접 의존하지 않는다</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>import</span> <span class='code-plain'>{ FileSystem } </span><span class='code-keyword'>from</span> <span class='code-string'>"@effect/platform"</span><span class='code-plain'>;</span>
+
+<span class='code-keyword'>const</span> <span class='code-plain'>backupConfig = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>fs = </span><span class='code-keyword'>yield*</span> <span class='code-type'>FileSystem</span><span class='code-plain'>;</span>
+
+  <span class='code-keyword'>const</span> <span class='code-plain'>content = </span><span class='code-keyword'>yield*</span> <span class='code-plain'>fs.</span><span class='code-func'>readFileString</span><span class='code-plain'>(</span><span class='code-string'>"config.json"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>fs.</span><span class='code-func'>writeFileString</span><span class='code-plain'>(</span><span class='code-string'>"config.backup.json"</span><span class='code-plain'>, content);</span>
+
+  <span class='code-keyword'>return</span> <span class='code-string'>"backup done"</span><span class='code-plain'>;</span>
+<span class='code-plain'>});</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-secondary);'>
+          <code>node:fs</code>에 직접 import하지 않는다.<br>
+          <code>FileSystem</code> capability를 쓰면 Node/Bun/Browser FileSystem runtime에서 같은 코드가 실행된다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 23 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>23</div>
+        <div class='section-label reveal'>Testing</div>
+        <h2 class='reveal reveal-delay-1'>테스트 = <span class='accent-cyan'>세상 바꾸기</span></h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0;'>
+          좋은 테스트는 <strong>코드를 바꾸지 않고</strong><br>
+          코드가 실행되는 <strong>세계를 바꾼다</strong>.
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid' style='max-width: 560px; margin: 0 auto;'>
+            <div class='keyword-card'><p>Production</p><span>Browser runtime</span></div>
+            <div class='keyword-card'><p>Test</p><span>Mock + TestClock</span></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-4' style='margin-top: var(--content-gap); font-family: JetBrains Mono; color: var(--text-secondary); font-size: var(--body-size);'>
+          Effect.runPromise(program.pipe(Effect.provide(TestRuntime)))
+        </div>
+      </div>
+    </section>
+
+    <!-- 24 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>24</div>
+        <div class='section-label reveal'>Contract</div>
+        <h2 class='reveal reveal-delay-1'>의존성 누락은 <span class='accent-cyan'>컴파일 전</span>에 드러난다</h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-comment'>// Requirements에 HttpClient가 필요함</span>
+<span class='code-keyword'>const</span> <span class='code-plain'>loadUser: Effect.</span><span class='code-func'>Effect</span><span class='code-plain'>&lt;User, UserError, </span><span class='code-type'>HttpClient</span><span class='code-plain'>&gt; = ...</span>
+
+<span class='code-comment'>// ❌ provide 없이 실행하면 누락이 명확해짐</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(loadUser);</span>
+
+<span class='code-comment'>// ✅ provide로 해결</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(loadUser.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(HttpClientLive)));</span>
+<span class='code-comment'>// Effect&lt;User, UserError, never&gt;</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap);'>
+          <div class='vs-block'>
+            <div>
+              <h3 class='accent-magenta' style='font-size: var(--h3-size); margin-bottom: var(--element-gap);'>기존 DI</h3>
+              <p style='color: var(--text-secondary); font-size: var(--body-size);'>provider 누락은 <strong>런타임</strong>에 발견</p>
+            </div>
+            <div class='vs'>→</div>
+            <div>
+              <h3 class='accent-cyan' style='font-size: var(--h3-size); margin-bottom: var(--element-gap);'>Effect</h3>
+              <p style='color: var(--text-secondary); font-size: var(--body-size);'>Requirements가 <strong>타입</strong>에 남음</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 25 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>25</div>
+        <div class='section-label reveal'>Time</div>
+        <h2 class='reveal reveal-delay-1'>시간은 <span class='accent-magenta'>어디에나</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <div class='keyword-grid'>
+            <div class='keyword-card'><p>HTTP request</p></div>
+            <div class='keyword-card'><p>timeout</p></div>
+            <div class='keyword-card'><p>retry</p></div>
+            <div class='keyword-card'><p>polling</p></div>
+            <div class='keyword-card'><p>streaming</p></div>
+            <div class='keyword-card'><p>websocket</p></div>
+            <div class='keyword-card'><p>cancellation</p></div>
+            <div class='keyword-card'><p>cleanup</p></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap);'>
+          지금 당장 끝나는 계산이 아니라, 시간 속에서 성공·실패·중단되는 작업.
+        </div>
+      </div>
+    </section>
+
+    <!-- 26 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>26</div>
+        <div class='section-label reveal'>Manual Retry</div>
+        <h2 class='reveal reveal-delay-1'>일반 코드: <span class='accent-magenta'>Retry 직접 조립</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>async function</span> <span class='code-func'>loadUser</span><span class='code-plain'>() {</span>
+  <span class='code-keyword'>let</span> <span class='code-plain'>lastError;</span>
+  <span class='code-keyword'>for</span> <span class='code-plain'>(</span><span class='code-keyword'>let</span> <span class='code-plain'>i = 0; i &lt; 3; i++) {</span>
+    <span class='code-keyword'>try</span> <span class='code-plain'>{</span>
+      <span class='code-keyword'>const</span> <span class='code-plain'>res = </span><span class='code-keyword'>await</span> <span class='code-func'>fetch</span><span class='code-plain'>(</span><span class='code-string'>"/api/user"</span><span class='code-plain'>);</span>
+      <span class='code-keyword'>if</span> <span class='code-plain'>(res.ok) </span><span class='code-keyword'>return await</span> <span class='code-plain'>res.</span><span class='code-func'>json</span><span class='code-plain'>();</span>
+    <span class='code-plain'>} </span><span class='code-keyword'>catch</span> <span class='code-plain'>(e) { lastError = e; }</span>
+    <span class='code-keyword'>await</span> <span class='code-func'>sleep</span><span class='code-plain'>(1000 * (i + 1));</span>
+  <span class='code-plain'>}</span>
+  <span class='code-keyword'>throw</span> <span class='code-plain'>lastError;</span>
+<span class='code-plain'>}</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-muted); font-size: var(--small-size);'>
+          loop · await · delay · error capture · 재시도 정책이 모두 섞여 있다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 27 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>27</div>
+        <div class='section-label reveal'>Policy as Value</div>
+        <h2 class='reveal reveal-delay-1'>Retry도 <span class='accent-cyan'>값으로 조합한다</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>loadUser = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>http = </span><span class='code-keyword'>yield*</span> <span class='code-type'>HttpClient</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>return yield*</span> <span class='code-plain'>http.</span><span class='code-func'>getUser</span><span class='code-plain'>();</span>
+<span class='code-plain'>});</span>
+
+<span class='code-keyword'>const</span> <span class='code-plain'>resilient = loadUser.</span><span class='code-func'>pipe</span><span class='code-plain'>(</span>
+  <span class='code-plain'>Effect.</span><span class='code-func'>timeout</span><span class='code-plain'>(</span><span class='code-string'>"5 seconds"</span><span class='code-plain'>),</span>
+  <span class='code-plain'>Effect.</span><span class='code-func'>retry</span><span class='code-plain'>(Schedule.</span><span class='code-func'>exponential</span><span class='code-plain'>(</span><span class='code-string'>"1 second"</span><span class='code-plain'>).</span><span class='code-func'>pipe</span><span class='code-plain'>(</span>
+    <span class='code-plain'>Schedule.</span><span class='code-func'>intersect</span><span class='code-plain'>(Schedule.</span><span class='code-func'>recurs</span><span class='code-plain'>(2))</span>
+  <span class='code-plain'>))</span>
+<span class='code-plain'>);</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-secondary);'>
+          정책이 실행 코드에 섞이지 않고, 프로그램 값에 조합된다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 28 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>28</div>
+        <div class='section-label reveal'>Test</div>
+        <h2 class='reveal reveal-delay-1'>테스트는 <span class='accent-cyan'>Runtime 교체</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-comment'>// Program은 그대로</span>
+<span class='code-keyword'>const</span> <span class='code-plain'>program = resilient;</span>
+
+<span class='code-comment'>// 실패 2번 후 성공하는 HttpClient</span>
+<span class='code-keyword'>const</span> <span class='code-plain'>FailingThenSucceedHttp = Layer.</span><span class='code-func'>succeed</span><span class='code-plain'>(</span>
+  <span class='code-type'>HttpClient</span><span class='code-plain'>,</span>
+  <span class='code-keyword'>new</span> <span class='code-type'>HttpClientFake</span><span class='code-plain'>({ failCount: 2 })</span>
+<span class='code-plain'>);</span>
+
+<span class='code-comment'>// 동일한 program을 다른 세계에서 실행</span>
+<span class='code-plain'>Effect.</span><span class='code-func'>runPromise</span><span class='code-plain'>(program.</span><span class='code-func'>pipe</span><span class='code-plain'>(Effect.</span><span class='code-func'>provide</span><span class='code-plain'>(FailingThenSucceedHttp)));</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap);'>
+          코드를 바꾸지 않고 실패/시간/병렬 시나리오를 재현한다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 29 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>29</div>
+        <div class='section-label reveal'>Stream</div>
+        <h2 class='reveal reveal-delay-1'>Stream = <span class='accent-cyan'>시간에 따른 값</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>chunk 도착 시점 불확실</li>
+            <li>중간 실패 가능</li>
+            <li>중단 및 cleanup 필요</li>
+            <li>backpressure</li>
+          </ul>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); text-align: center;'>
+          <span class='type-pill'>Stream.Stream&lt;Chunk, StreamError, HttpClient&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 30 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>30</div>
+        <div class='section-label reveal'>Runtime</div>
+        <h2 class='reveal reveal-delay-1'>Runtime이 <span class='accent-cyan'>시간을 제어</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap); max-width: 700px; margin-left: auto; margin-right: auto;'>
+          <ul class='point-list'>
+            <li>시작 · 순서 · 병렬</li>
+            <li>timeout · retry</li>
+            <li>interruption · cleanup</li>
+            <li>streaming 소비</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 31 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>31</div>
+        <div class='section-label reveal'>Error</div>
+        <h2 class='reveal reveal-delay-1'>Promise는 <span class='accent-magenta'>실패를 숨긴다</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>async function</span> <span class='code-func'>loadUser</span><span class='code-plain'>(): Promise&lt;User&gt; {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>res = </span><span class='code-keyword'>await</span> <span class='code-func'>fetch</span><span class='code-plain'>(</span><span class='code-string'>"/api/user"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>if</span> <span class='code-plain'>(!res.ok) </span><span class='code-keyword'>throw new</span> <span class='code-type'>Error</span><span class='code-plain'>(</span><span class='code-string'>"failed"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>return</span> <span class='code-keyword'>await</span> <span class='code-plain'>res.</span><span class='code-func'>json</span><span class='code-plain'>();</span>
+<span class='code-plain'>}</span>
+
+<span class='code-comment'>// Promise&lt;User&gt;: 401? timeout? decode error? 모름</span>
+<span class='code-comment'>// catch (error) { /* error: unknown */ }</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 32 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>32</div>
+        <div class='section-label reveal'>Error Modeling</div>
+        <h2 class='reveal reveal-delay-1'>실패를 <span class='accent-cyan'>먼저 모델링</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>class</span> <span class='code-type'>UnauthorizedError</span> <span class='code-keyword'>extends</span> <span class='code-plain'>Data.</span><span class='code-func'>TaggedError</span><span class='code-plain'>(</span><span class='code-string'>"UnauthorizedError"</span><span class='code-plain'>)&lt;{}&gt; {}</span>
+
+<span class='code-keyword'>class</span> <span class='code-type'>NetworkError</span> <span class='code-keyword'>extends</span> <span class='code-plain'>Data.</span><span class='code-func'>TaggedError</span><span class='code-plain'>(</span><span class='code-string'>"NetworkError"</span><span class='code-plain'>)&lt;{ reason: string }&gt; {}</span>
+
+<span class='code-keyword'>class</span> <span class='code-type'>DecodeError</span> <span class='code-keyword'>extends</span> <span class='code-plain'>Data.</span><span class='code-func'>TaggedError</span><span class='code-plain'>(</span><span class='code-string'>"DecodeError"</span><span class='code-plain'>)&lt;{ reason: string }&gt; {}</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); text-align: center;'>
+          <span class='type-pill'>Effect&lt;User, UnauthorizedError | NetworkError | DecodeError, HttpClient&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 33 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>33</div>
+        <div class='section-label reveal'>Error Handling</div>
+        <h2 class='reveal reveal-delay-1'>에러도 <span class='accent-cyan'>프로그램의 일부로</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>handled = loadUser.</span><span class='code-func'>pipe</span><span class='code-plain'>(</span>
+  <span class='code-plain'>Effect.</span><span class='code-func'>catchTag</span><span class='code-plain'>(</span><span class='code-string'>"UnauthorizedError"</span><span class='code-plain'>, () =&gt; redirectToLogin),</span>
+  <span class='code-plain'>Effect.</span><span class='code-func'>catchTag</span><span class='code-plain'>(</span><span class='code-string'>"NetworkError"</span><span class='code-plain'>, () =&gt; showRetryToast)</span>
+<span class='code-plain'>);</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-secondary); font-size: var(--body-size);'>
+          처리하지 않은 에러는 타입에 그대로 남는다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 34 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>34</div>
+        <div class='section-label reveal'>Error Model</div>
+        <h2 class='reveal reveal-delay-1'>Error = <span class='accent-cyan'>설계</span></h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0;'>
+          실패 가능성을 식별하고,<br>
+          domain model로 표현하며,<br>
+          어떤 boundary에서 처리할지 정한다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 35 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>35</div>
+        <div class='section-label reveal'>Generator</div>
+        <h2 class='reveal reveal-delay-1'>Generator = <span class='accent-cyan'>멈출 수 있는 함수</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>function*</span> <span class='code-func'>program</span><span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>a = </span><span class='code-keyword'>yield</span> <span class='code-string'>"step 1"</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>b = </span><span class='code-keyword'>yield</span> <span class='code-string'>"step 2"</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>return</span> <span class='code-plain'>a + b;</span>
+<span class='code-plain'>}</span>
+
+<span class='code-keyword'>const</span> <span class='code-plain'>gen = </span><span class='code-func'>program</span><span class='code-plain'>();</span>
+
+console.</span><span class='code-func'>log</span><span class='code-plain'>(gen.</span><span class='code-func'>next</span><span class='code-plain'>().value); </span><span class='code-comment'>// "step 1"</span>
+console.</span><span class='code-func'>log</span><span class='code-plain'>(gen.</span><span class='code-func'>next</span><span class='code-plain'>(10).value); </span><span class='code-comment'>// "step 2"</span>
+console.</span><span class='code-func'>log</span><span class='code-plain'>(gen.</span><span class='code-func'>next</span><span class='code-plain'>(20).value); </span><span class='code-comment'>// 30</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); color: var(--text-secondary);'>
+          <code>yield</code>에서 멈추고, caller가 <code>next()</code>로 값을 넣어 resume.
+        </div>
+      </div>
+    </section>
+
+    <!-- 36 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>36</div>
+        <div class='section-label reveal'>Yield*</div>
+        <h2 class='reveal reveal-delay-1'><code>yield*</code> = <span class='accent-cyan'>제어권 양도</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <ol class='point-list'>
+            <li>program 멈춤</li>
+            <li>현재 Effect를 runtime에 넘김</li>
+            <li>dependency 탐색</li>
+            <li>async 실행</li>
+            <li>실패 시 error channel</li>
+            <li>성공 시 값 반환</li>
+            <li>timeout/cancel/cleanup 관리</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 37 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>37</div>
+        <div class='section-label reveal'>IoC</div>
+        <h2 class='reveal reveal-delay-1'>Inversion of <span class='accent-cyan'>Control</span></h2>
+        <div class='vs-block' style='margin-top: var(--content-gap);'>
+          <div class='reveal reveal-delay-2'>
+            <h3 class='accent-magenta' style='margin-bottom: var(--element-gap); font-size: var(--h3-size);'>Normal</h3>
+            <ul class='point-list'>
+              <li>내 코드가 의존성 생성</li>
+              <li>내 코드가 실행</li>
+              <li>내 코드가 에러 처리</li>
+              <li>내 코드가 cleanup</li>
+            </ul>
+          </div>
+          <div class='reveal reveal-delay-3 vs'>→</div>
+          <div class='reveal reveal-delay-4'>
+            <h3 class='accent-cyan' style='margin-bottom: var(--element-gap); font-size: var(--h3-size);'>Effect</h3>
+            <ul class='point-list'>
+              <li>effect 선언</li>
+              <li>runtime이 실행</li>
+              <li>Layer가 의존성 제공</li>
+              <li>runtime이 시간/중단 관리</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 38 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>38</div>
+        <div class='section-label reveal'>Interface</div>
+        <h2 class='reveal reveal-delay-1'>Program to <span class='accent-cyan'>Capability</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+<pre><span class='code-keyword'>const</span> <span class='code-plain'>submit = Effect.</span><span class='code-func'>gen</span><span class='code-plain'>(</span><span class='code-keyword'>function*</span> <span class='code-plain'>() {</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>http = </span><span class='code-keyword'>yield*</span> <span class='code-type'>HttpClient</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>storage = </span><span class='code-keyword'>yield*</span> <span class='code-type'>Storage</span><span class='code-plain'>;</span>
+  <span class='code-keyword'>const</span> <span class='code-plain'>analytics = </span><span class='code-keyword'>yield*</span> <span class='code-type'>Analytics</span><span class='code-plain'>;</span>
+
+  <span class='code-keyword'>const</span> <span class='code-plain'>result = </span><span class='code-keyword'>yield*</span> <span class='code-plain'>http.</span><span class='code-func'>post</span><span class='code-plain'>(</span><span class='code-string'>"/submit"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>storage.</span><span class='code-func'>set</span><span class='code-plain'>(</span><span class='code-string'>"last"</span><span class='code-plain'>, result.id);</span>
+  <span class='code-keyword'>yield*</span> <span class='code-plain'>analytics.</span><span class='code-func'>track</span><span class='code-plain'>(</span><span class='code-string'>"submitted"</span><span class='code-plain'>);</span>
+  <span class='code-keyword'>return</span> <span class='code-plain'>result;</span>
+<span class='code-plain'>});</span></pre>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); text-align: center;'>
+          <span class='type-pill'>Effect&lt;SubmitResult, SubmitError, HttpClient | Storage | Analytics&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 39 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>39</div>
+        <div class='section-label reveal'>Principles</div>
+        <h2 class='reveal reveal-delay-1' style='margin-bottom: var(--content-gap);'>Effect.ts가 가르쳐주는 6가지 원칙</h2>
+        <div class='reveal reveal-delay-2' style='max-width: 760px; margin: 0 auto; text-align: left;'>
+          <ol class='point-list'>
+            <li>순수 로직과 Effect 분리</li>
+            <li>Effect를 값으로 다룸</li>
+            <li>성공 / 실패 / 의존성은 타입에</li>
+            <li>코드는 capability, runtime은 나중에</li>
+            <li>시간은 runtime이 제어</li>
+            <li>generator로 program과 runtime 연결</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 40 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>40</div>
+        <div class='section-label reveal'>Mapping</div>
+        <h2 class='reveal reveal-delay-1' style='margin-bottom: var(--content-gap);'>분리 → Effect.ts</h2>
+        <div class='reveal reveal-delay-2'>
+          <div class='number-row' style='max-width: 900px; margin: 0 auto;'>
+            <div class='number-item'><span class='num'>S</span><p>무엇을 할 것인가</p></div>
+            <div class='number-item'><span class='num'>E</span><p>어떤 실패가 가능한가</p></div>
+            <div class='number-item'><span class='num'>R</span><p>어떤 구현체가 필요한가</p></div>
+          </div>
+        </div>
+        <div class='reveal reveal-delay-3' style='margin-top: var(--content-gap); font-family: JetBrains Mono; color: var(--cyan); font-size: var(--body-size);'>
+          Runtime / Layer · Generator / Fiber
+        </div>
+      </div>
+    </section>
+
+    <!-- 41 -->
+    <section class='slide center-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>41</div>
+        <div class='section-label reveal'>Testability</div>
+        <h2 class='reveal reveal-delay-1'>Program vs Runtime</h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0;'>
+          Program은 그대로 두고,<br>
+          <strong>Runtime만 바꿔</strong> 원하는 세계를 만든다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 42 -->
+    <section class='slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>42</div>
+        <div class='section-label reveal'>Boundaries</div>
+        <h2 class='reveal reveal-delay-1'>Effect.ts가 <span class='accent-magenta'>아닌 것</span></h2>
+        <div class='reveal reveal-delay-2' style='margin-top: var(--content-gap);'>
+          <ul class='point-list'>
+            <li>아키텍처를 자동으로 만들어주는 도구</li>
+            <li>모든 코드에 반드시 써야 하는 도구</li>
+            <li>React component를 대체하는 도구</li>
+            <li>함수형 용어 전문가만 쓰는 도구</li>
+          </ul>
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin-top: var(--content-gap); border-color: var(--cyan);'>
+          Effect = 값으로 모델링하고, 타입에 드러내고, runtime과 분리하는 도구.
+        </div>
+      </div>
+    </section>
+
+    <!-- 43 -->
+    <section class='slide title-slide'>
+      <div class='slide-content'>
+        <div class='slide-number'>43</div>
+        <div class='reveal' style='font-family: JetBrains Mono; color: var(--cyan); font-size: var(--small-size);'>CLOSING</div>
+        <h2 class='reveal reveal-delay-1 glow-cyan' style='margin-top: var(--element-gap);'>명시적인 분리</h2>
+        <div class='big-phrase reveal reveal-delay-2' style='margin: var(--content-gap) auto 0; max-width: min(90vw, 900px);'>
+          Effect.ts는 아키텍처를 대신 만들지 않는다.<br>
+          하지만 <span class='accent-magenta'>순수 로직/Effect</span>, <span class='accent-cyan'>code/runtime</span>, <span class='accent-violet'>success/error</span>, interface/implementation을<br>
+          TypeScript 코드 안에서 <strong>명시적으로 표현</strong>하게 해준다.
+        </div>
+        <div class='reveal reveal-delay-3 statement' style='margin: var(--content-gap) auto 0; max-width: min(90vw, 860px); border-color: var(--cyan); text-align: left;'>
+          Effect.ts가 가르쳐주는 것은 라이브러리 사용법이 아니라,<br>
+          “무엇을 선언하고, 무엇을 runtime에게 맡길 것인가”를 다시 생각하는 것이다.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class='progress-bar'><div class='progress-fill' id='progressFill'></div></div>
+  <div class='slide-counter'><span id='currentSlide'>1</span> / <span id='totalSlides'>43</span></div>
+  <div class='nav-hint'>← ↑ ↓ → · Space · Click</div>
+
+  <script>
+    (function() {
+      'use strict';
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const total = slides.length;
+      let current = 0;
+      document.getElementById('totalSlides').textContent = String(total);
+
+      function updateUI() {
+        document.getElementById('currentSlide').textContent = String(current + 1);
+        document.getElementById('progressFill').style.width = ((current / (total - 1)) * 100) + '%';
+      }
+      function goTo(index) {
+        if (index < 0) index = 0;
+        if (index >= total) index = total - 1;
+        if (index === current) return;
+        current = index;
+        slides[current].scrollIntoView({ behavior: 'smooth' });
+        updateUI();
+      }
+      function next() { goTo(current + 1); }
+      function prev() { goTo(current - 1); }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch (e.key) {
+          case 'ArrowDown': case 'ArrowRight': case 'PageDown': case ' ':
+            e.preventDefault(); next(); break;
+          case 'ArrowUp': case 'ArrowLeft': case 'PageUp':
+            e.preventDefault(); prev(); break;
+          case 'Home': e.preventDefault(); goTo(0); break;
+          case 'End': e.preventDefault(); goTo(total - 1); break;
+        }
+      });
+
+      const main = document.getElementById('presentation');
+      main.addEventListener('click', (e) => {
+        const rect = main.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        if (x > rect.width * 0.7) next();
+        else if (x < rect.width * 0.3) prev();
+      });
+
+      let wheelTimeout;
+      window.addEventListener('wheel', (e) => {
+        if (wheelTimeout) return;
+        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 700);
+        if (e.deltaY > 0) next();
+        else if (e.deltaY < 0) prev();
+      }, { passive: true });
+
+      let touchStartY = 0;
+      window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+      window.addEventListener('touchend', (e) => {
+        const diff = touchStartY - e.changedTouches[0].clientY;
+        if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
+      }, { passive: true });
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.querySelectorAll('.reveal').forEach(el => el.classList.add('active'));
+            const idx = slides.indexOf(entry.target);
+            if (idx !== current) { current = idx; updateUI(); }
+          } else {
+            entry.target.querySelectorAll('.reveal').forEach(el => el.classList.remove('active'));
+          }
+        });
+      }, { threshold: 0.55 });
+      slides.forEach(slide => observer.observe(slide));
+      updateUI();
+
+      const canvas = document.getElementById('particles');
+      const ctx = canvas.getContext('2d');
+      let particles = [], width, height, animationId;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+      function initParticles() {
+        particles = [];
+        const count = Math.min(60, Math.floor((width * height) / 25000));
+        for (let i = 0; i < count; i++) {
+          particles.push({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, r: Math.random() * 1.5 + 0.5 });
+        }
+      }
+      function drawParticles() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          for (let j = i + 1; j < particles.length; j++) {
+            const q = particles[j];
+            const dist = Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2);
+            if (dist < 120) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+          }
+        }
+        animationId = requestAnimationFrame(drawParticles);
+      }
+      if (!prefersReducedMotion) { resize(); initParticles(); drawParticles(); window.addEventListener('resize', () => { resize(); initParticles(); }); }
+    })();
+  </script>
+</body>
+</html>
