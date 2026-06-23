@@ -14,10 +14,10 @@ Effect 프로그램은 구체 구현체가 아니라 abstract runtime capability
 
 ```ts
 async function submit() {
-  const response = await fetch("/api/submit");
-  localStorage.setItem("lastSubmit", Date.now().toString());
-  console.log("submitted");
-  return response.json();
+  const response = await fetch("/api/submit")
+  localStorage.setItem("lastSubmit", Date.now().toString())
+  console.log("submitted")
+  return response.json()
 }
 ```
 
@@ -38,28 +38,24 @@ error model = throw/rejected promise
 
 ```ts
 const submitProgram = Effect.gen(function* () {
-  const http = yield* HttpClient;
-  const storage = yield* Storage;
-  const logger = yield* Logger;
-  const clock = yield* Clock;
+  const http = yield* HttpClient
+  const storage = yield* Storage
+  const logger = yield* Logger
+  const clock = yield* Clock
 
-  const response = yield* http.post("/api/submit");
-  const now = yield* clock.currentTimeMillis;
-  yield* storage.set("lastSubmit", String(now));
-  yield* logger.info("submitted");
+  const response = yield* http.post("/api/submit")
+  const now = yield* clock.currentTimeMillis
+  yield* storage.set("lastSubmit", String(now))
+  yield* logger.info("submitted")
 
-  return response;
-});
+  return response
+})
 ```
 
 타입으로 보면:
 
 ```ts
-Effect.Effect<
-  SubmitResult,
-  SubmitError,
-  HttpClient | Storage | Logger | Clock
->
+Effect.Effect<SubmitResult, SubmitError, HttpClient | Storage | Logger | Clock>
 ```
 
 ### 핵심 문장
@@ -78,7 +74,7 @@ const BrowserRuntime = Layer.mergeAll(
   BrowserStorageLive,
   ConsoleLoggerLive,
   ClockLive
-);
+)
 ```
 
 Test runtime:
@@ -89,15 +85,13 @@ const TestRuntime = Layer.mergeAll(
   InMemoryStorageTest,
   MemoryLoggerTest,
   TestClock
-);
+)
 ```
 
 Bootstrap:
 
 ```ts
-Effect.runPromise(
-  submitProgram.pipe(Effect.provide(BrowserRuntime))
-);
+Effect.runPromise(submitProgram.pipe(Effect.provide(BrowserRuntime)))
 ```
 
 ---
@@ -137,7 +131,7 @@ Effect.Effect<User, UserError, HttpClient>
 `HttpClient`가 필요한 상태다.
 
 ```ts
-const runnable = program.pipe(Effect.provide(HttpClientLive));
+const runnable = program.pipe(Effect.provide(HttpClientLive))
 // Effect.Effect<User, UserError, never>
 ```
 

@@ -1,0 +1,16 @@
+{
+  "name": "intro-to-effect-ts-presentation",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "pnpm --dir effect-demo start",
+    "demo": "pnpm --dir effect-demo start",
+    "typecheck": "pnpm --dir effect-demo typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.8.4"
+  },
+  "packageManager": "pnpm@10.17.1"
+}

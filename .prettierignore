@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.git/
+.worktree/
+# Generated slide deck output; source markdown lives in index.md and sections/.
+index.html
+pnpm-lock.yaml

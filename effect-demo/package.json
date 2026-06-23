@@ -1,0 +1,34 @@
+{
+  "name": "intro-to-effect-ts-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "01:bad": "tsx src/main.ts 01:bad",
+    "01:good": "tsx src/main.ts 01:good",
+    "02:bad": "tsx src/main.ts 02:bad",
+    "02:good": "tsx src/main.ts 02:good",
+    "03:bad": "tsx src/main.ts 03:bad",
+    "03:good": "tsx src/main.ts 03:good",
+    "04:bad": "tsx src/main.ts 04:bad",
+    "04:good": "tsx src/main.ts 04:good",
+    "05:bad": "tsx src/main.ts 05:bad",
+    "05:good": "tsx src/main.ts 05:good",
+    "05:type-contract": "tsx src/main.ts 05:type-contract",
+    "06:bad": "tsx src/main.ts 06:bad",
+    "06:good": "tsx src/main.ts 06:good",
+    "06:mini-runtime": "tsx src/main.ts 06:mini-runtime"
+  },
+  "dependencies": {
+    "effect": "^3.21.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.17.1"
+}

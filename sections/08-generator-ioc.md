@@ -14,9 +14,9 @@ Effect에서 generator를 쓰는 이유를 문법적 편의가 아니라 runtime
 
 ```ts
 function* program() {
-  const a = yield "step 1";
-  const b = yield "step 2";
-  return a + b;
+  const a = yield "step 1"
+  const b = yield "step 2"
+  return a + b
 }
 ```
 
@@ -39,14 +39,14 @@ function* program() {
 
 ```ts
 const program = Effect.gen(function* () {
-  const http = yield* HttpClient;
-  const logger = yield* Logger;
+  const http = yield* HttpClient
+  const logger = yield* Logger
 
-  const user = yield* http.getUser();
-  yield* logger.info("user loaded");
+  const user = yield* http.getUser()
+  yield* logger.info("user loaded")
 
-  return user;
-});
+  return user
+})
 ```
 
 읽기에는 async/await와 비슷하다.
@@ -55,7 +55,7 @@ const program = Effect.gen(function* () {
 
 ---
 
-## Slide 3. 각 yield*에서 일어나는 일
+## Slide 3. 각 yield\*에서 일어나는 일
 
 ```txt
 1. program이 멈춘다
@@ -104,16 +104,16 @@ Runtime이 시간과 interruption을 관리한다
 
 ```ts
 const submit = Effect.gen(function* () {
-  const http = yield* HttpClient;
-  const storage = yield* Storage;
-  const analytics = yield* Analytics;
+  const http = yield* HttpClient
+  const storage = yield* Storage
+  const analytics = yield* Analytics
 
-  const result = yield* http.post("/submit");
-  yield* storage.set("lastSubmit", result.id);
-  yield* analytics.track("submitted");
+  const result = yield* http.post("/submit")
+  yield* storage.set("lastSubmit", result.id)
+  yield* analytics.track("submitted")
 
-  return result;
-});
+  return result
+})
 ```
 
 이 프로그램은 다음을 모른다.
@@ -128,11 +128,7 @@ const submit = Effect.gen(function* () {
 알고 있는 것은 capability뿐이다.
 
 ```ts
-Effect.Effect<
-  SubmitResult,
-  SubmitError,
-  HttpClient | Storage | Analytics
->
+Effect.Effect<SubmitResult, SubmitError, HttpClient | Storage | Analytics>
 ```
 
 ### 핵심 문장

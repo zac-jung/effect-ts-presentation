@@ -59,9 +59,9 @@
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "success":
-      return { ...state, status: "success" };
+      return { ...state, status: "success" }
     case "failure":
-      return { ...state, status: "error" };
+      return { ...state, status: "error" }
   }
 }
 ```

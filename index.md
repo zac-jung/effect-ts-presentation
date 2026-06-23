@@ -36,14 +36,14 @@
 
 ```ts
 const program = Effect.gen(function* () {
-  yield* Effect.sync(() => console.log("side effect"));
-  return 1;
-});
+  yield* Effect.sync(() => console.log("side effect"))
+  return 1
+})
 
 // 이 시점에는 아직 console.log가 실행되지 않는다.
 // program: Effect.Effect<number, never, never>
 
-const fiber = Effect.runFork(program);
+const fiber = Effect.runFork(program)
 // 이 시점부터 runtime에서 실행이 시작된다.
 // fiber: RuntimeFiber<number, never>
 ```

@@ -36,19 +36,19 @@
 
 ```ts
 async function loadUser() {
-  const controller = new AbortController();
+  const controller = new AbortController()
 
   const timeout = setTimeout(() => {
-    controller.abort();
-  }, 5000);
+    controller.abort()
+  }, 5000)
 
   try {
     const response = await fetch("/api/user", {
-      signal: controller.signal,
-    });
-    return await response.json();
+      signal: controller.signal
+    })
+    return await response.json()
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timeout)
   }
 }
 ```
@@ -71,10 +71,10 @@ async function loadUser() {
 
 ```ts
 const loadUser = Effect.gen(function* () {
-  const http = yield* HttpClient;
-  const user = yield* http.getUser();
-  return user;
-});
+  const http = yield* HttpClient
+  const user = yield* http.getUser()
+  return user
+})
 ```
 
 시간 정책은 boundary에서 조합한다.
@@ -83,7 +83,7 @@ const loadUser = Effect.gen(function* () {
 const resilientLoadUser = loadUser.pipe(
   Effect.timeout("5 seconds"),
   Effect.retry(Schedule.recurs(3))
-);
+)
 ```
 
 ### 핵심 문장

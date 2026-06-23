@@ -32,11 +32,7 @@ Requirements
 예:
 
 ```ts
-Effect.Effect<
-  User,
-  UnauthorizedError | TimeoutError,
-  HttpClient | Logger
->
+Effect.Effect<User, UnauthorizedError | TimeoutError, HttpClient | Logger>
 ```
 
 ### 핵심 문장
@@ -48,7 +44,7 @@ Effect.Effect<
 ## Slide 2. 일반 코드는 호출하면 실행된다
 
 ```ts
-const user = await fetchUser();
+const user = await fetchUser()
 ```
 
 호출 순간:
@@ -65,15 +61,15 @@ const user = await fetchUser();
 
 ```ts
 const loadUser = Effect.gen(function* () {
-  const http = yield* HttpClient;
-  const logger = yield* Logger;
+  const http = yield* HttpClient
+  const logger = yield* Logger
 
-  yield* logger.info("loading user");
-  const user = yield* http.getUser();
-  yield* logger.info("user loaded");
+  yield* logger.info("loading user")
+  const user = yield* http.getUser()
+  yield* logger.info("user loaded")
 
-  return user;
-});
+  return user
+})
 ```
 
 이 시점에는 아직 실행되지 않았다.
@@ -93,11 +89,11 @@ const loadUser = Effect.gen(function* () {
 ```ts
 const program = Effect.gen(function* () {
   yield* Effect.sync(() => {
-    console.log("side effect");
-  });
+    console.log("side effect")
+  })
 
-  return 1;
-});
+  return 1
+})
 ```
 
 이 시점에는 `console.log`가 실행되지 않는다.
@@ -109,7 +105,7 @@ const program = Effect.gen(function* () {
 실행을 시작하면 Fiber가 생긴다.
 
 ```ts
-const fiber = Effect.runFork(program);
+const fiber = Effect.runFork(program)
 // fiber: RuntimeFiber<number, never>
 ```
 
